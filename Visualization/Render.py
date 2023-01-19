@@ -8,8 +8,10 @@ import numpy as np
 
 from PIL import Image
 
-directory = r'C:\Users\danno\Documents\FurnaceProgram\Visualization\Icons'
-cardImagePath = r'C:\Users\danno\Documents\FurnaceProgram\Visualization\HandImage.png'
+# directory = r'C:\Users\danno\Documents\FurnaceProgram\Visualization\Icons'
+cDir = os.getcwd()
+directory = os.path.join(cDir, r'Visualization\Icons')
+cardImagePath = os.path.join(cDir, r'HandImage.png')
 
 sysDebug = False
 
@@ -26,12 +28,16 @@ def checkAdvancedString(s, kwa):
 def oilPath(**kwargs):
     path = r'oil.png'
     path = checkAdvancedString(path, kwargs)
-    return os.path.join(directory, path), 1.0
+    if not directory == None:
+        path = os.path.join(directory, path)
+    return path, 1.0
 
 def coalPath(**kwargs):
     path = r'coal.png'
     path = checkAdvancedString(path, kwargs)
-    return os.path.join(directory, path), 0.55
+    if not directory == None:
+        path = os.path.join(directory, path)
+    return path, 0.55
 
 def coinPath(**kwargs):
     arg = 'count'
@@ -48,21 +54,29 @@ def coinPath(**kwargs):
     else:
         path = default
     path = checkAdvancedString(path, kwargs)
-    return os.path.join(directory, path), scale
+    if not directory == None:
+        path = os.path.join(directory, path)
+    return path, scale
 
 def steelPath(**kwargs):
     path = r'steel.png'
     path = checkAdvancedString(path, kwargs)
-    return os.path.join(directory, path), 0.9
+    if not directory == None:
+        path = os.path.join(directory, path)
+    return path, 0.9
 
 def toolPath(**kwargs):
     path = r'tool.png'
     path = checkAdvancedString(path, kwargs)
-    return os.path.join(directory, path), 0.5
+    if not directory == None:
+        path = os.path.join(directory, path)
+    return path, 0.5
 
 def checkPath(**kwargs):
     path = r'check.png'
-    return os.path.join(directory, path), 2
+    if not directory == None:
+        path = os.path.join(directory, path)
+    return path, 2
 
 def arrowPath(**kwargs):
     arg = 'count'
@@ -87,16 +101,21 @@ def numberPath(**kwargs):
     if arg in kwargs:
         val = kwargs[arg]
         path = r'{}.png'.format(val)
-        return os.path.join(directory, path), 0.5
+        if not directory == None:
+            path = os.path.join(directory, path)
+        return path, 0.5
     return ''
 
 def flipPath(**kwargs):
     path = r'flip.png'
-    return os.path.join(directory, path), 0.4
+    if not directory == None:
+        path = os.path.join(directory, path)
+    return path, 0.4
 
 def getBackground(size):
     path = r'background.png'
-    path = os.path.join(directory, path)
+    if not directory == None:
+        path = os.path.join(directory, path)
     img = cv2.imread(path)
     h = img.shape[0]
     w = img.shape[1]
@@ -181,6 +200,30 @@ def overlayList(background, images, rowCoord):
         c += tween
     return background
 
+def overlayLines(background, lines = [], color = (100, 100, 255, 0.1), thickness = 2, sequence=False, **kwargs):
+    '''
+    Draws a series of lines on the image and returns the new version of it.
+    :param background: Image to draw on
+    :param color: Color the lines should be
+    :param lines: list of line points in format of 0-1 scalars that will be applied to the image resolution
+    :param sequence: Boolean whether or not the images should be drawn in a sequence or separate lines for each set of two coordinates
+    :return: New version of the image
+    '''
+    dims = background.shape
+    i = 0
+    while i < len(lines) - 1:
+        # Determine the coordinates
+        x1 = int(dims[1] * lines[i][0])
+        y1 = int(dims[0] * lines[i][1])
+        i += 1
+        x2 = int(dims[1] * lines[i][0])
+        y2 = int(dims[0] * lines[i][1])
+        # Draw the line
+        background = cv2.line(background, (x1, y1), (x2, y2), color, thickness)
+        if not sequence:
+            i += 1
+    return background
+
 def IsPersonalCard(Card):
     return 'p' in Card.value
 
@@ -209,7 +252,8 @@ def RenderCard(card, advanced = False, played = False, cardSize = 0.9, *args, **
         img = overlay(img, getIcon(iconSize, checkPath), (0.475, 0.5))
 
     # Check if it's a personal card and render the tool if it is
-    if IsPersonalCard(card):
+    isPersonal = IsPersonalCard(card)
+    if isPersonal:
         img = overlay(img, getIcon(iconSize, toolPath), (0.7, 0.5))
 
     # Set first trade data
@@ -234,6 +278,15 @@ def RenderCard(card, advanced = False, played = False, cardSize = 0.9, *args, **
         trade2Icons.append(getIcon(iconSize, flipPath))
     # Add the resource icons
     img = overlayList(img, trade2Icons, 0.9)
+
+    # If the card is advanced, draw a red X over the second trade
+    if not advanced and not isPersonal:
+        x1 = 0.3
+        x2 = 0.7
+        y1 = 0.85
+        y2 = 0.95
+        lines = [(x1, y1), (x2, y2), (x2, y1), (x1, y2)]
+        overlayLines(img, lines=lines)
     return img
 
 def SaveCardImage(img):

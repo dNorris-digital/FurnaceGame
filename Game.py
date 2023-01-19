@@ -23,16 +23,16 @@ class Game():
 
         self.TurnInProgress = False
 
-    def AdvanceCard(self, card):
+    def AdvanceCard(self, card, undo = False):
         if not card in self.cards.keys():
             return False
-        if self.cards[card][1] == True:
+        if self.cards[card][1] == 1 - undo:
             print("Tried to advance {} but it was already advanced!".format(card))
             return False
         if self.IsPersonalCard(card):
             print("Cannot advance {} because it is a personal card".format(card))
             return False
-        self.cards[card][1] = True
+        self.cards[card][1] = 1 - undo
         return True
 
     def SetLastCard(self, Card):
@@ -63,20 +63,22 @@ class Game():
 
     def UndoLastCardBase(self):
         if self.lastCard == None:
-            print("No cards have been played in this round.")
+            print("No last card found.")
         if self.IsPersonalCard(self.lastCard):
-            status = self.PersonalCard(self.lastCard, undo=True)
+            status = self.UnplayPersonalCard(self.lastCard)
         else:
             status = self.Card(self.lastCard, undo=True)
         if status:
             self.cards[self.lastCard][0] = False
 
         # Check if there are any cards that were advanced
-        print('unplaying card {}, lastCardAdvance: {}'.format(self.lastCard, self.lastCardAdvancement))
-        for i in range(len(self.lastCardAdvancement)):
-            self.cards[self.lastCardAdvancement[i]][1] = False
-            print('Undoing advancement of card {}'.format(self.lastCardAdvancement[i]))
+        # print('unplaying card {}, lastCardAdvance: {}'.format(self.lastCard, self.lastCardAdvancement))
+        # for i in range(len(self.lastCardAdvancement)):
+        #     self.cards[self.lastCardAdvancement[i]][1] = False
+        #     print('Undoing advancement of card {}'.format(self.lastCardAdvancement[i]))
         self.lastCardAdvancement = []
+        self.lastTrade1 = 0
+        self.lastTrade2 = 0
         return status
 
     def Collect(self, card, count):
@@ -103,13 +105,21 @@ class Game():
                 self.collected.append(card)
         print('Collection Complete...')
 
-    def PayResource(self, Source):
-        if self.oil >= Source.oil and self.coal >= Source.coal and self.tool >= Source.tool and self.steel >= Source.steel:
-            self.oil -= Source.oil
-            self.coal -= Source.coal
-            self.tool -= Source.tool
-            self.steel -= Source.steel
-            self.coin -= Source.coin
+    def PayResource(self, Source, undo=False):
+        if not undo:
+            if self.oil >= Source.oil and self.coal >= Source.coal and self.tool >= Source.tool and self.steel >= Source.steel:
+                self.oil -= Source.oil
+                self.coal -= Source.coal
+                self.tool -= Source.tool
+                self.steel -= Source.steel
+                self.coin -= Source.coin
+                return True
+        else:
+            self.oil += Source.oil
+            self.coal += Source.coal
+            self.tool += Source.tool
+            self.steel += Source.steel
+            self.coin += Source.coin
             return True
         return False
 
@@ -184,10 +194,9 @@ class Game():
                 break
             else:
                 self.lastTrade2 += 1
-        print('lastTrade1: {}, lastTrade2: {}'.format(self.lastTrade1, self.lastTrade2))
         return True
 
-    def PersonalCard(self, card, undo = False, **kwargs):
+    def PersonalCard(self, card, **kwargs):
         '''
         Perform the trades on a personal card
         :param card: Card ID
@@ -200,10 +209,8 @@ class Game():
             print('Tried to play personal card {} but it is not in your hand!'.format(card))
             return False
         # Add the tool
-        if undo:
-            self.tool -=1
-        else:
-            self.tool += 1
+        self.tool += 1
+        # Determine specs of first trade
         trade1 = CardDeck[card]['PrimaryCount']
         tradeArgs = ['t', 't1', 'T', 'T1', 'trade', 'trade1', 'Trade1', 'Trade']
         for a in tradeArgs:
@@ -212,12 +219,6 @@ class Game():
                 break
         pSource = CardDeck[card]['PrimarySource']
         pValue = CardDeck[card]['PrimaryValue']
-        if undo:
-            pSource = pValue
-            pValue = CardDeck[card]['PrimarySource']
-            # Undo one transaction for each card in the lastCardAdvanced list
-            for i in range(len(self.lastCardAdvancement)):
-                self.Trade(Res(), CardDeck[card]['AdvancedSource'])
 
         self.lastTrade1 = 0
         # Validate the first trade
@@ -245,10 +246,29 @@ class Game():
                     print('Advanced cards: {}'.format(self.lastCardAdvancement))
         return True
 
-    def PayToAdvance(self, Source, Card):
-        advance = self.AdvanceCard(Card)
+    def UnplayPersonalCard(self, card, **kwargs):
+        # Prep to undo first trade
+        pValue = CardDeck[card]['PrimarySource']
+        pSource = CardDeck[card]['PrimaryValue']
+        self.ShowRes()
+        for i in range(self.lastTrade1):
+            self.Trade(pSource, pValue)
+
+        # Undo one transaction for each card in the lastCardAdvanced list
+        for i in range(len(self.lastCardAdvancement)):
+            self.ShowRes()
+            self.Trade(Res(), CardDeck[card]['AdvancedSource'])
+            self.ShowRes()
+            self.cards[self.lastCardAdvancement[i]][1] = False
+
+        # Get rid of the tool
+        self.tool -= 1
+        return True
+
+    def PayToAdvance(self, Source, Card, undo=False):
+        advance = self.AdvanceCard(Card, undo)
         if advance:
-            if self.PayResource(Source):
+            if self.PayResource(Source, undo):
                 self.PrintAdvance(Source, Card, True)
                 return True
             else:
@@ -359,3 +379,9 @@ class Game():
         outStr = "Performing Card Advancement: Paying:{}, Card To Advance:{}, Status:{}".format(
             self.TransactionString(Source), Card, approvedStr)
         print(outStr)
+
+    def ShowRes(self):
+        print('Coal: {}, Steel: {}, Oil: {}, Tool: {}, Coin: {}'.format(self.coal, self.steel, self.oil, self.tool, self.coin))
+
+    def ShowResources(self):
+        self.ShowRes()

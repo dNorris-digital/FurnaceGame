@@ -92,8 +92,3 @@ class Player(Game):
             RenderCards(self.cards, scale=scale)
             ShowCardImage()
 
-    def ShowRes(self):
-        print('Coal: {}, Steel: {}, Oil: {}, Tool: {}, Coin: {}'.format(self.coal, self.steel, self.oil, self.tool, self.coin))
-
-    def ShowResources(self):
-        self.ShowRes()
